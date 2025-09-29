@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: challengr
+  namespace: challengr
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: challengr.local
+      http:
+        paths:
+          - path: /api/challenges
+            pathType: Prefix
+            backend:
+              service:
+                name: challenge-service
+                port: { number: 8080 }
+          - path: /api/submissions
+            pathType: Prefix
+            backend:
+              service:
+                name: submission-service
+                port: { number: 8081 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: webapp
+                port: { number: 80 }

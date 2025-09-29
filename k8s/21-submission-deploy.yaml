@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: submission-service, namespace: challengr }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: submission-service } }
+  template:
+    metadata: { labels: { app: submission-service } }
+    spec:
+      containers:
+        - name: app
+          image: submission-service:0.1
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 8081 } ]
+          env:
+            - { name: DB_URL, value: "jdbc:postgresql://postgres:5432/challengr" }
+            - { name: DB_USER, valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_USER } } }
+            - { name: DB_PASS, valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_PASSWORD } } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: submission-service, namespace: challengr }
+spec:
+  selector: { app: submission-service }
+  ports: [ { port: 8081, targetPort: 8081 } ]
