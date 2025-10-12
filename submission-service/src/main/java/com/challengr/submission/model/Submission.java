@@ -7,6 +7,8 @@ import java.time.*;
     Long challengeId;
     String userHandle;
     String contentType; // "text" | "image"
+    String imageUrl;        // URL d'image (MVP)
+    String description;     // texte descriptif
     @Column(length=4000) String content; // text or image URL
     Integer likesCount = 0;
     LocalDateTime createdAt = LocalDateTime.now();
@@ -19,4 +21,12 @@ import java.time.*;
     public String getContent(){return content;} public void setContent(String c){this.content=c;}
     public Integer getLikesCount(){return likesCount;} public void setLikesCount(Integer l){this.likesCount=l;}
     public LocalDateTime getCreatedAt(){return createdAt;} public void setCreatedAt(LocalDateTime t){this.createdAt=t;}
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+
 }

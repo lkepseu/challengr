@@ -1,0 +1,85 @@
+<!-- ============================================================
+     Fichier : logback.xml
+     Objectif : Produire des logs JSON structurés (format Logstash),
+                 enrichis avec trace_id, span_id, service.name, et
+                 le nom de la classe Java d’origine.
+     ============================================================ -->
+<configuration>
+
+    <!-- === 1. Filtre OpenTelemetry === -->
+    <!--
+        Ajoute automatiquement dans le MDC (Mapped Diagnostic Context) :
+        - trace_id
+        - span_id
+        - trace_flags
+        Ces champs seront injectés dans chaque log.
+    -->
+    <turboFilter class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryMdcLogbackFilter"/>
+
+    <!-- === 2. Déclaration de propriétés === -->
+    <!--
+        Variables réutilisables dans le fichier.
+        SERVICE_NAME peut venir d'une variable d'environnement (${SERVICE_NAME})
+        si tu veux qu’il s’adapte entre dev/staging/prod.
+    -->
+    <property name="SERVICE_NAME" value="submission-service"/>
+    <property name="ENVIRONMENT" value="production"/>
+
+    <!-- === 3. Appender JSON (stdout) === -->
+    <!--
+        Envoie les logs vers la console en format JSON structuré.
+        Compatible avec Fluent Bit, Promtail, Loki, ELK, etc.
+    -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+
+            <!-- === 3.1 Champs statiques === -->
+            <!--
+                Ajoute des champs permanents à chaque log :
+                - service.name : nom du microservice
+                - environment : contexte d’exécution
+            -->
+            <customFields>
+                {
+                "service.name": "${SERVICE_NAME}",
+                "environment": "${ENVIRONMENT}"
+                }
+            </customFields>
+
+            <!-- === 3.2 Inclure les champs MDC d’OpenTelemetry === -->
+            <!--
+                Ces champs (trace_id, span_id, etc.) sont ajoutés dynamiquement
+                par le filtre OpenTelemetry.
+            -->
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>trace_flags</includeMdcKeyName>
+
+            <!-- === 3.3 Inclure le nom de la classe d’origine === -->
+            <!--
+                "%logger" = nom complet du logger (souvent la classe Java).
+                On le mappe explicitement au champ "class_name" pour clarté.
+            -->
+            <fieldNames>
+                <logger>class_name</logger>
+            </fieldNames>
+
+            <!-- === 3.4 Formatage lisible (optionnel en dev) === -->
+            <!--
+                prettyPrint=true : JSON indenté, pratique en local.
+                À mettre à false en production pour alléger la taille des logs.
+            -->
+            <prettyPrint>true</prettyPrint>
+        </encoder>
+    </appender>
+
+    <!-- === 4️⃣ Logger racine === -->
+    <!--
+        Niveau minimal de logs = INFO.
+        Tous les logs (INFO, WARN, ERROR) seront envoyés au JSON appender.
+    -->
+    <root level="INFO">
+        <appender-ref ref="JSON"/>
+    </root>
+
+</configuration>

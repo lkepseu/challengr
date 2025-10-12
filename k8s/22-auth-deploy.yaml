@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: challengr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      # 🧩 Étape 1 — initContainer : télécharge l’agent avant le lancement
+      initContainers:
+        - name: otel-agent-downloader
+          image: curlimages/curl:8.6.0
+          command: [ "sh", "-c" ]
+          args:
+            - >
+              echo "📥 Téléchargement de l’agent OpenTelemetry..." &&
+              curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.12.0/opentelemetry-javaagent.jar
+              -o /otel/opentelemetry-javaagent.jar &&
+              echo "✅ Agent téléchargé avec succès."
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+
+      # 🧩 Étape 2 — conteneur principal
+      containers:
+        - name: auth-service
+          image: auth-service:0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+
+          # 🌐 Variables d’environnement
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres:5432/challengr"
+
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: POSTGRES_USER
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: JWT_SECRET
+              value: "dev-secret-please-change-32-bytes"
+
+            # 🟣 OpenTelemetry configuration
+            - name: JAVA_TOOL_OPTIONS
+              value: >
+                -javaagent:/otel/opentelemetry-javaagent.jar
+                -Dotel.service.name=auth-service
+                -Dotel.logs.exporter=none
+                -Dotel.metrics.exporter=none
+                -Dotel.traces.exporter=none
+                
+
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+              readOnly: true
+
+      # 🗂️ Volume partagé entre initContainer et conteneur principal
+      volumes:
+        - name: otel-agent
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: challengr
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - port: 8082
+      targetPort: 8082

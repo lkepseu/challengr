@@ -13,9 +13,35 @@ spec:
           imagePullPolicy: IfNotPresent
           ports: [ { containerPort: 8081 } ]
           env:
-            - { name: DB_URL, value: "jdbc:postgresql://postgres:5432/challengr" }
-            - { name: DB_USER, valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_USER } } }
-            - { name: DB_PASS, valueFrom: { secretKeyRef: { name: pg-secret, key: POSTGRES_PASSWORD } } }
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres:5432/challengr"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: POSTGRES_PASSWORD
+            - name: JWT_SECRET
+              value: "dev-secret-please-change-32-bytes"
+#            - name: JAVA_TOOL_OPTIONS
+#              value: >
+#                -javaagent:/otel/opentelemetry-javaagent.jar
+#          volumeMounts:
+#            - name: otel-agent
+#              mountPath: /otel
+#            - name: uploads
+#              mountPath: /uploads
+#      volumes:
+#        - name : uploads
+#          emptyDir: {}
+#        - name: otel-agent
+#          configMap:
+#            name: otel-javaagent
+
 ---
 apiVersion: v1
 kind: Service
