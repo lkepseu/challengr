@@ -17,7 +17,7 @@ spec:
       initContainers:
         - name: otel-agent-downloader
           image: curlimages/curl:8.6.0
-          command: [ "sh", "-c" ]
+          command: ["sh", "-c"]
           args:
             - >
               echo "📥 Téléchargement de l’agent OpenTelemetry..." &&
@@ -36,40 +36,47 @@ spec:
           ports:
             - containerPort: 8082
 
-          # 🌐 Variables d’environnement
           env:
+            # 🟡 Base de données
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://postgres:5432/challengr"
-
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: pg-secret
                   key: POSTGRES_USER
-
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: pg-secret
                   key: POSTGRES_PASSWORD
-
             - name: JWT_SECRET
               value: "dev-secret-please-change-32-bytes"
 
-            # 🟣 OpenTelemetry configuration
+            # 🟣 Configuration OpenTelemetry complète
             - name: JAVA_TOOL_OPTIONS
               value: >
                 -javaagent:/otel/opentelemetry-javaagent.jar
                 -Dotel.service.name=auth-service
-                -Dotel.logs.exporter=none
+                -Dotel.exporter.otlp.endpoint=http://otel-collector.logging.svc.cluster.local:4317
+                -Dotel.exporter.otlp.protocol=grpc
+                -Dotel.logs.exporter=otlp
                 -Dotel.metrics.exporter=none
-                -Dotel.traces.exporter=none
-                
+                -Dotel.traces.exporter=otlp
+                -Dotel.resource.attributes=deployment.environment=dev
 
           volumeMounts:
             - name: otel-agent
               mountPath: /otel
               readOnly: true
+
+          # Ajout d'une sonde de santé simple (facultatif mais recommandé)
+          readinessProbe:
+            httpGet:
+              path: /api/auth/health
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 10
 
       # 🗂️ Volume partagé entre initContainer et conteneur principal
       volumes:
@@ -85,5 +92,6 @@ spec:
   selector:
     app: auth-service
   ports:
-    - port: 8082
+    - name: http
+      port: 8082
       targetPort: 8082

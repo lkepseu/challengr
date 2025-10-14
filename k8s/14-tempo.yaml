@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: logging
+data:
+  tempo.yaml: |
+    server:
+      http_listen_port: 3200
+      grpc_listen_port: 4317
+      log_level: info
+      http_listen_address: 0.0.0.0
+      grpc_listen_address: 0.0.0.0
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+            http:
+
+    ingester:
+      max_block_duration: 5m   # OK, on garde juste ce champ
+
+    compactor:
+      compaction:
+        block_retention: 24h
+
+    metrics_generator:
+      registry:
+        external_labels:
+          source: tempo
+      processor:
+        span_metrics:
+          dimensions: [service, span_name]
+
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+        - name: tempo
+          image: grafana/tempo:2.5.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-config.file=/etc/tempo/tempo.yaml"
+          ports:
+            - containerPort: 3200
+            - containerPort: 4317
+          volumeMounts:
+            - name: tempo-config
+              mountPath: /etc/tempo/tempo.yaml
+              subPath: tempo.yaml
+            - name: tempo-data
+              mountPath: /var/tempo/traces
+      volumes:
+        - name: tempo-config
+          configMap:
+            name: tempo-config
+        - name: tempo-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: logging
+spec:
+  selector:
+    app: tempo
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3200
+      targetPort: 3200
+    - name: grpc
+      protocol: TCP
+      port: 4317
+      targetPort: 4317

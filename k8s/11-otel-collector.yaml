@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: logging
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch: {}
+      attributes/rename_labels:
+        actions:
+          - key: service_name
+            from_attribute: service.name
+            action: insert
+          - key: service.name
+            action: delete
+          - key: environment
+            from_attribute: deployment.environment
+            action: insert
+          - key: deployment.environment
+            action: delete
+
+
+    exporters:
+      otlp/tempo:
+        endpoint: tempo.logging.svc.cluster.local:4317
+        tls:
+          insecure: true
+      loki:
+        endpoint: http://loki.logging.svc.cluster.local:3100/loki/api/v1/push
+        tls:
+          insecure: true
+      logging:
+        loglevel: info
+
+    service:
+      telemetry:
+        logs:
+          level: "info"
+      pipelines:
+        logs:
+          receivers: [otlp]
+          processors: [attributes/rename_labels, batch]
+          exporters: [loki, logging]
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlp/tempo, logging]
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.105.0
+          imagePullPolicy: IfNotPresent
+          args: ["--config=/etc/otel/config.yaml"]   # ✅ remplace "command:" par "args:"
+          volumeMounts:
+            - name: otel-config
+              mountPath: /etc/otel
+          ports:
+            - containerPort: 4317
+            - containerPort: 4318
+      volumes:
+        - name: otel-config
+          configMap:
+            name: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: logging
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

@@ -1,23 +1,4 @@
-# ===============================
-# 🧱 Persistent Volume Claim (PVC)
-# ===============================
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: grafana-pvc
-  namespace: logging
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 2Gi
-  storageClassName: standard   # (ou "hostpath" selon ton driver Minikube)
-
----
-# ==================
-# 🚀 Grafana Deployment
-# ==================
+# 14-grafana.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -43,41 +24,17 @@ spec:
               value: admin
             - name: GF_SECURITY_ADMIN_PASSWORD
               value: admin
-            - name: GF_AUTH_ANONYMOUS_ENABLED
-              value: "true"
-            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
-              value: "Admin"
             - name: GF_INSTALL_PLUGINS
-              value: grafana-piechart-panel,grafana-clock-panel
-          readinessProbe:
-            httpGet:
-              path: /login
-              port: 3000
-            initialDelaySeconds: 10
-            periodSeconds: 5
-          volumeMounts:
-            - name: grafana-storage
-              mountPath: /var/lib/grafana   # 📂 stockage des dashboards et conf
-      volumes:
-        - name: grafana-storage
-          persistentVolumeClaim:
-            claimName: grafana-pvc
-
+              value: "grafana-lokiexplore-app"
 ---
-# =======================
-# 🌐 Grafana Service (NodePort)
-# =======================
 apiVersion: v1
 kind: Service
 metadata:
   name: grafana
   namespace: logging
 spec:
-  type: NodePort
   selector:
     app: grafana
   ports:
-    - name: http
-      port: 3000
+    - port: 3000
       targetPort: 3000
-      nodePort: 32000

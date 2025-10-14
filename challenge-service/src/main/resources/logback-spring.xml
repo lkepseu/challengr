@@ -1,14 +1,13 @@
-
 <configuration>
 
-    <!-- <turboFilter class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryMdcLogbackFilter"/> -->
+    <!-- Service & Environnement -->
+    <property name="SERVICE_NAME" value="challenge-service" />
+    <property name="ENVIRONMENT" value="dev" />
 
-    <property name="SERVICE_NAME" value="challenge-service"/>
-    <property name="ENVIRONMENT" value="production"/>
-
-
-    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Appender JSON (compatible Loki / OpenTelemetry Collector) -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timeZone>UTC</timeZone>
             <customFields>
                 {
                 "service.name": "${SERVICE_NAME}",
@@ -16,20 +15,25 @@
                 }
             </customFields>
 
-<!--            <includeMdcKeyName>trace_id</includeMdcKeyName>-->
-<!--            <includeMdcKeyName>span_id</includeMdcKeyName>-->
-<!--            <includeMdcKeyName>trace_flags</includeMdcKeyName>-->
+            <!-- Si le MDC est activé par l’agent OTel -->
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>trace_flags</includeMdcKeyName>
 
             <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <level>level</level>
                 <logger>class_name</logger>
+                <thread>thread</thread>
+                <message>message</message>
             </fieldNames>
 
-            <prettyPrint>true</prettyPrint>
+            <prettyPrint>false</prettyPrint>
         </encoder>
     </appender>
 
     <root level="INFO">
-        <appender-ref ref="JSON"/>
+        <appender-ref ref="JSON_CONSOLE"/>
     </root>
 
 </configuration>
