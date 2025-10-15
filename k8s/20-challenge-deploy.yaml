@@ -41,7 +41,7 @@ spec:
                 -Dotel.service.name=challenge-service
                 -Dotel.exporter.otlp.endpoint=http://otel-collector.logging.svc.cluster.local:4317
                 -Dotel.exporter.otlp.protocol=grpc
-                -Dotel.logs.exporter=otlp
+                -Dotel.logs.exporter=none
                 -Dotel.metrics.exporter=none
                 -Dotel.traces.exporter=otlp
                 -Dotel.resource.attributes=deployment.environment=dev

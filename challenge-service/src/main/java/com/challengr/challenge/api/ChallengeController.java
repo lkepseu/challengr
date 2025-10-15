@@ -28,6 +28,13 @@ public class ChallengeController {
         return challenge;
     }
 
+    @GetMapping("/test")
+    public String test() {
+        logger.info("✅ ChallengeController - test endpoint called");
+        return "ok";
+    }
+
+
     @GetMapping("/health")
     public Map<String, String> healthCheck() {
         logger.info("Health check endpoint called");

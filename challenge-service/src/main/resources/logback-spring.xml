@@ -4,7 +4,7 @@
     <property name="SERVICE_NAME" value="challenge-service" />
     <property name="ENVIRONMENT" value="dev" />
 
-    <!-- Appender JSON (compatible Loki / OpenTelemetry Collector) -->
+    <!-- Appender JSON (pour console locale + debug) -->
     <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <timeZone>UTC</timeZone>
@@ -14,12 +14,9 @@
                 "environment": "${ENVIRONMENT}"
                 }
             </customFields>
-
-            <!-- Si le MDC est activé par l’agent OTel -->
             <includeMdcKeyName>trace_id</includeMdcKeyName>
             <includeMdcKeyName>span_id</includeMdcKeyName>
             <includeMdcKeyName>trace_flags</includeMdcKeyName>
-
             <fieldNames>
                 <timestamp>timestamp</timestamp>
                 <level>level</level>
@@ -27,11 +24,10 @@
                 <thread>thread</thread>
                 <message>message</message>
             </fieldNames>
-
-            <prettyPrint>false</prettyPrint>
         </encoder>
     </appender>
 
+    <!-- Root logger -->
     <root level="INFO">
         <appender-ref ref="JSON_CONSOLE"/>
     </root>
