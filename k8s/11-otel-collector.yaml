@@ -36,7 +36,7 @@ data:
 
     exporters:
       otlp/tempo:
-        endpoint: tempo.logging.svc.cluster.local:4317
+        endpoint: tempo.logging.svc.cluster.local:9095
         tls:
           insecure: true
       loki:
@@ -44,10 +44,15 @@ data:
         tls:
           insecure: true
       logging:
-        loglevel: info
+        verbosity: normal
+      prometheus:              
+        endpoint: "0.0.0.0:8889"
+
 
     service:
       telemetry:
+        metrics:
+          address: 0.0.0.0:8888
         logs:
           level: "info"
       pipelines:
@@ -59,7 +64,10 @@ data:
           receivers: [otlp]
           processors: [batch]
           exporters: [otlp/tempo, logging]
-
+        metrics:
+          receivers: [otlp]
+          exporters: [prometheus]
+          
 
 ---
 apiVersion: apps/v1
@@ -88,6 +96,7 @@ spec:
           ports:
             - containerPort: 4317
             - containerPort: 4318
+            - containerPort: 8888
       volumes:
         - name: otel-config
           configMap:
@@ -108,3 +117,6 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: 4318
+    - name: metrics
+      port: 8888
+      targetPort: 8888

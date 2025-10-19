@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  namespace: challengr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+        - name: webapp
+          image: webapp:v1
+          ports:
+            - containerPort: 80
+          env:
+            - name: VITE_API_URL
+              value: "http://challengr.local"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp
+  namespace: challengr
+spec:
+  selector:
+    app: webapp
+  ports:
+    - port: 80
+      targetPort: 80

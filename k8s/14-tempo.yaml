@@ -14,8 +14,6 @@ data:
       http_listen_port: 3200
       grpc_listen_port: 4317
       log_level: info
-      http_listen_address: 0.0.0.0
-      grpc_listen_address: 0.0.0.0
 
     distributor:
       receivers:
@@ -25,7 +23,7 @@ data:
             http:
 
     ingester:
-      max_block_duration: 5m   # OK, on garde juste ce champ
+      max_block_duration: 5m
 
     compactor:
       compaction:
@@ -44,6 +42,7 @@ data:
         backend: local
         local:
           path: /var/tempo/traces
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -63,16 +62,13 @@ spec:
       containers:
         - name: tempo
           image: grafana/tempo:2.5.0
-          imagePullPolicy: IfNotPresent
-          args:
-            - "-config.file=/etc/tempo/tempo.yaml"
+          args: ["-config.file=/etc/tempo/tempo.yaml"]
           ports:
             - containerPort: 3200
             - containerPort: 4317
           volumeMounts:
             - name: tempo-config
-              mountPath: /etc/tempo/tempo.yaml
-              subPath: tempo.yaml
+              mountPath: /etc/tempo
             - name: tempo-data
               mountPath: /var/tempo/traces
       volumes:
@@ -92,10 +88,9 @@ spec:
     app: tempo
   ports:
     - name: http
-      protocol: TCP
       port: 3200
+      protocol: TCP
       targetPort: 3200
     - name: grpc
-      protocol: TCP
       port: 4317
       targetPort: 4317

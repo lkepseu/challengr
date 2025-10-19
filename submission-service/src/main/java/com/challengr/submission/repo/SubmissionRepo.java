@@ -1,8 +1,10 @@
 package com.challengr.submission.repo;
-import org.springframework.data.jpa.repository.JpaRepository;
+
 import com.challengr.submission.model.Submission;
-import java.util.*;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
 
 public interface SubmissionRepo extends JpaRepository<Submission, Long> {
-    List<Submission> findTop20ByChallengeIdOrderByCreatedAtDesc(Long challengeId);
+    List<Submission> findByChallengeId(Long challengeId);
 }

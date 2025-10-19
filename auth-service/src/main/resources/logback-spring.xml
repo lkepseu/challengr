@@ -1,23 +1,35 @@
 <configuration>
-    <!-- Charge le module d'encodage JSON -->
-    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Service & Environnement -->
+    <property name="SERVICE_NAME" value="auth-service" />
+    <property name="ENVIRONMENT" value="dev" />
+
+    <!-- Appender JSON (pour console locale + debug) -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <!-- Date ISO-8601 et fuseau UTC -->
             <timeZone>UTC</timeZone>
-
             <customFields>
                 {
-                "service.name": "auth-service",
-                "environment": "dev"
+                "service.name": "${SERVICE_NAME}",
+                "environment": "${ENVIRONMENT}"
                 }
             </customFields>
-
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>trace_flags</includeMdcKeyName>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <level>level</level>
+                <logger>class_name</logger>
+                <thread>thread</thread>
+                <message>message</message>
+            </fieldNames>
         </encoder>
     </appender>
 
+    <!-- Root logger -->
     <root level="INFO">
         <appender-ref ref="JSON_CONSOLE"/>
     </root>
+
 </configuration>

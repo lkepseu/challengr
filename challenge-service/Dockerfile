@@ -22,7 +22,7 @@ EXPOSE 8080
 # Variables recommandées
 ENV OTEL_SERVICE_NAME=challenge-service
 ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector.logging.svc.cluster.local:4317
-ENV OTEL_METRICS_EXPORTER=none
+ENV OTEL_METRICS_EXPORTER=otlp
 ENV OTEL_LOGS_EXPORTER=otlp
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_TOOL_OPTIONS -jar /app/app.jar"]

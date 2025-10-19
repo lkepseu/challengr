@@ -29,7 +29,7 @@ spec:
 
       containers:
         - name: challenge-service
-          image: challenge-service:0.1
+          image: challenge-service:v2025-10-19-01h26m
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -41,8 +41,8 @@ spec:
                 -Dotel.service.name=challenge-service
                 -Dotel.exporter.otlp.endpoint=http://otel-collector.logging.svc.cluster.local:4317
                 -Dotel.exporter.otlp.protocol=grpc
-                -Dotel.logs.exporter=none
-                -Dotel.metrics.exporter=none
+                -Dotel.logs.exporter=otlp
+                -Dotel.metrics.exporter=otlp
                 -Dotel.traces.exporter=otlp
                 -Dotel.resource.attributes=deployment.environment=dev
 

@@ -12,7 +12,7 @@ spec:
       http:
         paths:
           - path: /api/challenges
-            pathType: Prefix
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: challenge-service

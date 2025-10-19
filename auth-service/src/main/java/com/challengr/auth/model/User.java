@@ -1,4 +1,4 @@
-package com.challengr.auth;
+package com.challengr.auth.model;
 
 import jakarta.persistence.*;
 

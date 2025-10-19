@@ -1,46 +1,68 @@
 #!/bin/bash
-# 🚀 Script de build et déploiement automatique pour un microservice Kubernetes sous Minikube
+set -e  # ⛔️ stop immediately if a command fails
 
-# Vérifie la présence des arguments (nom du service et tag)
-if [ $# -ne 2 ]; then
-  echo "❌ Usage: ./update-service.sh <service-name> <tag>"
+# ===========================
+# 🔧 Variables dynamiques
+# ===========================
+SERVICE=$1
+if [ -z "$SERVICE" ]; then
+  echo "❌ Usage: $0 <service-name>"
+  echo "   Example: ./redeploy-service.sh submission-service"
   exit 1
 fi
 
-SERVICE=$1
-TAG=$2
+TAG="v$(date +%Y-%m-%d-%Hh%Mm)"
+NAMESPACE="challengr"
+YAML_FILE="$SERVICE.yaml"
 
-echo "🔧 Service: $SERVICE"
-echo "🏷️ Tag: $TAG"
+# ===========================
+# 🚀 Étapes
+# ===========================
+echo "=========================================="
+echo "🔁 Redeploying service: $SERVICE ($TAG)"
+echo "=========================================="
 
-# Aller dans le dossier du microservice
-cd $SERVICE || { echo "❌ Dossier $SERVICE introuvable"; exit 1; }
+# 1️⃣ Compiler et packager
+echo "📦 Building Java project for $SERVICE..."
+cd $SERVICE
+mvn -q -DskipTests clean package || { echo "❌ Maven build failed"; exit 1; }
 
-# Nettoyer et recompiler sans les tests
-echo "🧹 Nettoyage et compilation Maven..."
-mvn -q -DskipTests clean package || { echo "❌ Erreur Maven"; exit 1; }
+# 2️⃣ Construire l'image Docker
+echo "🐳 Building Docker image: $SERVICE:$TAG ..."
+docker build -t $SERVICE:$TAG . || { echo "❌ Docker build failed"; exit 1; }
 
-# Construire l'image Docker directement dans Minikube
-echo "🐳 Construction de l'image Docker..."
-docker build -t $SERVICE:$TAG . || { echo "❌ Échec du build Docker"; exit 1; }
+# 3️⃣ Charger l’image dans Minikube
+echo "📤 Loading image into Minikube..."
+minikube image load $SERVICE:$TAG || { echo "❌ Minikube image load failed"; exit 1; }
 
-# Mettre à jour le déploiement Kubernetes
-echo "⚙️ Configuration de l'environnement Docker de Minikube..."
-eval $(minikube docker-env)
-# Active le Docker interne de Minikube (les images seront visibles par le cluster)
+# 4️⃣ Mettre à jour l’image dans le manifest Kubernetes
+echo "🧩 Updating image tag in $YAML_FILE..."
+cd ..
+cd k8s
+if [ -f "$YAML_FILE" ]; then
+  # Remplacer l'ancien tag par le nouveau (si présent)
+  sed -i.bak "s|\(image:.*$SERVICE:\).*|\1$TAG|" "$YAML_FILE"
+else
+  echo "⚠️ Warning: $YAML_FILE not found. Skipping YAML update."
+fi
 
-echo "🚀 Déploiement sur le cluster..."
-minikube image load $SERVICE:$TAG
+# 5️⃣ Appliquer le manifest
+echo "⚙️ Applying Kubernetes manifest..."
+kubectl apply -f "$YAML_FILE" -n "$NAMESPACE" || { echo "❌ kubectl apply failed"; exit 1; }
 
-echo "🚀 Mettre à jour le déploiement dans Kubernetes..."
-kubectl -n challengr set image deploy/$SERVICE app=$SERVICE:$TAG
+# 6️⃣ Redémarrer le déploiement
+echo "🚀 Restarting deployment..."
+kubectl -n "$NAMESPACE" rollout restart deployment/"$SERVICE"
 
-# Attendre la mise à jour complète
-kubectl -n challengr rollout status deploy/$SERVICE
+# 7️⃣ Attendre que le pod soit prêt
+echo "⏳ Waiting for deployment to be ready..."
+kubectl -n "$NAMESPACE" rollout status deployment/"$SERVICE"
 
-# Afficher les pods pour vérifier le nouveau conteneur
-kubectl get pods -n challengr
+# 8️⃣ Vérifier les pods actifs
+echo "📦 Pods currently running:"
+kubectl -n "$NAMESPACE" get pods -l app="$SERVICE"
 
-# 6️⃣ Vérifier les logs
-kubectl -n challengr logs deploy/$SERVICE --tail=20
-
+# 9️⃣ Afficher les logs
+echo "🧠 Displaying logs..."
+sleep 20
+kubectl -n "$NAMESPACE" logs -l app="$SERVICE" --tail=40 -f

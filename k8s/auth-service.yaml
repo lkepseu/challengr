@@ -13,55 +13,39 @@ spec:
       labels:
         app: auth-service
     spec:
-      # 🧩 Étape 1 — initContainer : télécharge l’agent avant le lancement
       initContainers:
         - name: otel-agent-downloader
           image: curlimages/curl:8.6.0
-          command: ["sh", "-c"]
+          command: [ "sh", "-c" ]
           args:
-            - >
-              echo "📥 Téléchargement de l’agent OpenTelemetry..." &&
-              curl -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.12.0/opentelemetry-javaagent.jar
-              -o /otel/opentelemetry-javaagent.jar &&
+            - |
+              echo "📥 Téléchargement de l’agent OpenTelemetry..." && \
+              curl -fsSL -o /otel/opentelemetry-javaagent.jar \
+              https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.12.0/opentelemetry-javaagent.jar && \
               echo "✅ Agent téléchargé avec succès."
           volumeMounts:
             - name: otel-agent
               mountPath: /otel
 
-      # 🧩 Étape 2 — conteneur principal
       containers:
         - name: auth-service
-          image: auth-service:0.1
+          image: auth-service:v2025-10-19-01h24m
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8082
 
           env:
-            # 🟡 Base de données
-            - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://postgres:5432/challengr"
-            - name: SPRING_DATASOURCE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: pg-secret
-                  key: POSTGRES_USER
-            - name: SPRING_DATASOURCE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: pg-secret
-                  key: POSTGRES_PASSWORD
             - name: JWT_SECRET
-              value: "dev-secret-please-change-32-bytes"
-
-            # 🟣 Configuration OpenTelemetry complète
+              value: "super-ultra-long-secret-key-1234567890-!!!"
             - name: JAVA_TOOL_OPTIONS
               value: >
+                -Dlogging.config=classpath:logback-spring.xml
                 -javaagent:/otel/opentelemetry-javaagent.jar
                 -Dotel.service.name=auth-service
                 -Dotel.exporter.otlp.endpoint=http://otel-collector.logging.svc.cluster.local:4317
                 -Dotel.exporter.otlp.protocol=grpc
                 -Dotel.logs.exporter=otlp
-                -Dotel.metrics.exporter=none
+                -Dotel.metrics.exporter=otlp
                 -Dotel.traces.exporter=otlp
                 -Dotel.resource.attributes=deployment.environment=dev
 
@@ -70,18 +54,10 @@ spec:
               mountPath: /otel
               readOnly: true
 
-          # Ajout d'une sonde de santé simple (facultatif mais recommandé)
-          readinessProbe:
-            httpGet:
-              path: /api/auth/health
-              port: 8082
-            initialDelaySeconds: 10
-            periodSeconds: 10
-
-      # 🗂️ Volume partagé entre initContainer et conteneur principal
       volumes:
         - name: otel-agent
-          emptyDir: {}
+          emptyDir: { }
+
 ---
 apiVersion: v1
 kind: Service
