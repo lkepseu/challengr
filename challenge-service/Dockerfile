@@ -8,6 +8,12 @@ RUN mvn -q -DskipTests package
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
+
+# 🧩 Script d’entrée
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'echo "🚀 Starting app with JAVA_TOOL_OPTIONS=$JAVA_TOOL_OPTIONS"' >> /entrypoint.sh && \
+    echo 'exec java $JAVA_TOOL_OPTIONS -jar /app/app.jar' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
 EXPOSE 8080
-ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /otel/opentelemetry-javaagent.jar
-ENTRYPOINT ["java", "-javaagent:/otel/opentelemetry-javaagent.jar", "-jar", "app.jar"]
+ENTRYPOINT ["/entrypoint.sh"]

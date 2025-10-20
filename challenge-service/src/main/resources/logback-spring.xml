@@ -1,33 +1,19 @@
-
 <configuration>
 
-    <!-- <turboFilter class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryMdcLogbackFilter"/> -->
-
     <property name="SERVICE_NAME" value="challenge-service"/>
-    <property name="ENVIRONMENT" value="production"/>
+    <property name="ENVIRONMENT" value="development"/>
 
-
+    <!-- Encodeur JSON pour Loki -->
     <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <timeZone>UTC</timeZone>
             <customFields>
-                {
-                "service.name": "${SERVICE_NAME}",
-                "environment": "${ENVIRONMENT}"
-                }
+                {"service.name": "${SERVICE_NAME}", "environment": "${ENVIRONMENT}"}
             </customFields>
-
-<!--            <includeMdcKeyName>trace_id</includeMdcKeyName>-->
-<!--            <includeMdcKeyName>span_id</includeMdcKeyName>-->
-<!--            <includeMdcKeyName>trace_flags</includeMdcKeyName>-->
-
-            <fieldNames>
-                <logger>class_name</logger>
-            </fieldNames>
-
-            <prettyPrint>true</prettyPrint>
         </encoder>
     </appender>
 
+    <!-- Niveau global -->
     <root level="INFO">
         <appender-ref ref="JSON"/>
     </root>

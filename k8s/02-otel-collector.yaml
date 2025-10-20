@@ -1,0 +1,208 @@
+# -------------------------------------------------------------------
+# Namespace (si tu ne l'as pas déjà)
+# -------------------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+# -------------------------------------------------------------------
+# ServiceAccount + RBAC (nécessaire pour k8sattributes)
+# -------------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: logging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector-k8sattributes
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector-k8sattributes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-collector-k8sattributes
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: logging
+---
+# -------------------------------------------------------------------
+# ConfigMap: OpenTelemetry Collector (Loki + Tempo)
+# -------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: logging
+data:
+  otel-collector-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 400
+      batch: {}
+      # Enrichissement K8s (labels, namespace, pod, etc.)
+      k8sattributes:
+        auth_type: serviceAccount
+        passthrough: false
+        extract:
+          metadata:
+            - k8s.pod.name
+            - k8s.namespace.name
+            - k8s.node.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+        pod_association:
+          - sources: [ { from: resource_attribute, name: k8s.pod.uid } ]
+          - sources: [ { from: resource_attribute, name: k8s.pod.name }, { from: resource_attribute, name: k8s.namespace.name } ]
+      # Harmoniser le service.name si absent (ex: agents non-configurés)
+      attributes/service:
+        actions:
+          - key: service.name
+            from_attribute: k8s.pod.name
+            action: upsert
+
+    exporters:
+      loki:
+        endpoint: http://loki.logging.svc.cluster.local:3100/loki/api/v1/push
+        tls:
+          insecure: true
+        default_labels_enabled:
+          exporter: true
+          job: true
+          
+
+
+
+
+      # Traces -> Tempo (OTLP gRPC)
+      otlp/tempo:
+        endpoint: tempo.logging.svc.cluster.local:4317
+        tls:
+          insecure: true
+
+      # Console pour debug
+      logging:
+        loglevel: info
+
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      pprof:
+        endpoint: 0.0.0.0:1777
+      zpages:
+        endpoint: 0.0.0.0:55679
+
+    service:
+      extensions: [health_check, pprof, zpages]
+      pipelines:
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, k8sattributes, attributes/service, batch]
+          exporters: [loki, logging]
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, k8sattributes, attributes/service, batch]
+          exporters: [otlp/tempo, logging]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [logging]
+---
+# -------------------------------------------------------------------
+# Deployment: OpenTelemetry Collector (contrib)
+# -------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      serviceAccountName: otel-collector
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.98.0
+          args: ["--config=/etc/otel/config/otel-collector-config.yaml"]
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            - name: healthz
+              containerPort: 13133
+            - name: pprof
+              containerPort: 1777
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "200Mi"
+            limits:
+              cpu: "500m"
+              memory: "500Mi"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otel/config
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+---
+# -------------------------------------------------------------------
+# Service: exposer OTLP (gRPC/HTTP) dans le cluster
+# -------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: logging
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
