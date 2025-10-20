@@ -1,53 +1,52 @@
 package com.challengr.auth.service;
 
 import com.challengr.auth.model.User;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
-import java.util.function.Function;
-import io.jsonwebtoken.Claims;
-import java.security.Key;
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
-
 
 import javax.crypto.SecretKey;
+import java.util.Base64;
 import java.util.Date;
+import java.util.function.Function;
+import io.jsonwebtoken.security.Keys;
 
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY = "MySuperSecretKeyForJwtEncoding123456";
+    // ✅ Clé longue (>= 32 caractères) pour HS256 — sécurisée
+    private static final String SECRET_KEY = "SuperUltraMegaSecretKeyForJWT1234567890!SuperUltraMegaSecretKey";
 
+    // 🧠 Génération du token JWT
     public String generateToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getEmail())
                 .claim("handle", user.getHandle())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 jour
-                .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 24h
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // ✅ Extraire le username (souvent l’email)
+    // ✅ Extraction du username (email)
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    // ✅ Vérifie si le token est valide pour un utilisateur donné
+    // ✅ Vérifie si le token est valide
     public boolean isTokenValid(String token, String username) {
         final String extractedUsername = extractUsername(token);
-        return (extractedUsername.equals(username) && !isTokenExpired(token));
+        return extractedUsername.equals(username) && !isTokenExpired(token);
     }
 
-    // 🔍 Récupère une donnée spécifique (claim) depuis le token
+    // 🔍 Extraction d’un claim spécifique
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    // ⏰ Vérifie si le token est expiré
+    // ⏰ Vérifie si le token a expiré
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
@@ -57,19 +56,18 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    // 🧩 Parse tous les claims à partir du token
+    // 🧩 Parse tous les claims du token
     private Claims extractAllClaims(String token) {
-        return Jwts
-                .parserBuilder()
+        return Jwts.parserBuilder()
                 .setSigningKey(getSignInKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    // 🔑 Crée la clé HMAC à partir de la clé secrète encodée en Base64
-    private Key getSignInKey() {
+    // 🔑 Génère une clé de signature HMAC conforme
+    private SecretKey getSignInKey() {
         byte[] keyBytes = Base64.getEncoder().encode(SECRET_KEY.getBytes());
-        return new SecretKeySpec(keyBytes, 0, keyBytes.length, "HmacSHA256");
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

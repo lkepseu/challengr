@@ -36,7 +36,7 @@ data:
 
     exporters:
       otlp/tempo:
-        endpoint: tempo.logging.svc.cluster.local:9095
+        endpoint: tempo.logging.svc.cluster.local:4317
         tls:
           insecure: true
       loki:
@@ -120,3 +120,6 @@ spec:
     - name: metrics
       port: 8888
       targetPort: 8888
+    - name: prometheus
+      port: 8889
+      targetPort: 8889

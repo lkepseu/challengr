@@ -45,7 +45,7 @@ public class SubmissionService {
             log.debug("Checking challenge existence (challengeId={})...", submission.getChallengeId());
             String challengeResponse = webClientBuilder.build()
                     .get()
-                    .uri("http://challenge-service:8080/api/challenges/" + submission.getChallengeId())
+                    .uri("http://challenge-service:8080/api/challenges/today")
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
