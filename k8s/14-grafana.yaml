@@ -1,4 +1,18 @@
 # 14-grafana.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: logging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard   # <-- ou "standard" selon ton driver Minikube (par défaut)
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,6 +40,14 @@ spec:
               value: admin
             - name: GF_INSTALL_PLUGINS
               value: "grafana-lokiexplore-app"
+          volumeMounts:
+            - name: grafana-storage
+              mountPath: /var/lib/grafana   # ⬅️ dossiers internes contenant dashboards et configs
+      volumes:
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: grafana-storage
+
 ---
 apiVersion: v1
 kind: Service

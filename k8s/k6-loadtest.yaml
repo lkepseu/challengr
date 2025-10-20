@@ -40,7 +40,7 @@ data:
         const user = `test${__VU}`; // chaque utilisateur a un ID unique
         
         // Corps JSON de la requête POST
-        const payload = JSON.stringify({ challengeId: 1, userHandle: user });
+        const payload = JSON.stringify({ challengeId: 3, userHandle: user });
         
         // En-têtes HTTP
         const params = {
