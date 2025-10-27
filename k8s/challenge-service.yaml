@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: challenge-service
+  namespace: challengr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: challenge-service
+  template:
+    metadata:
+      labels:
+        app: challenge-service
+    spec:
+      initContainers:
+        - name: otel-agent-downloader
+          image: curlimages/curl:8.6.0
+          command: [ "sh", "-c" ]
+          args:
+            - |
+              echo "📥 Téléchargement de l’agent OpenTelemetry..." && \
+              curl -fsSL -o /otel/opentelemetry-javaagent.jar \
+              https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.12.0/opentelemetry-javaagent.jar && \
+              echo "✅ Agent téléchargé avec succès."
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+
+      containers:
+        - name: challenge-service
+          image: challenge-service:v2025-10-19-01h26m
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: >
+                -Dlogging.config=classpath:logback-spring.xml
+                -javaagent:/otel/opentelemetry-javaagent.jar
+                -Dotel.service.name=challenge-service
+                -Dotel.exporter.otlp.endpoint=http://otel-collector.logging.svc.cluster.local:4317
+                -Dotel.exporter.otlp.protocol=grpc
+                -Dotel.logs.exporter=otlp
+                -Dotel.metrics.exporter=otlp
+                -Dotel.traces.exporter=otlp
+                -Dotel.resource.attributes=deployment.environment=dev
+                -Dotel.instrumentation.jvm-metrics.enabled=true
+                -Dotel.instrumentation.http-server-metrics.enabled=true
+                -Dotel.instrumentation.http-client-metrics.enabled=true
+                -Dotel.instrumentation.jdbc-metrics.enabled=true
+                -Dotel.instrumentation.micrometer.enabled=true
+
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+              readOnly: true
+
+      volumes:
+        - name: otel-agent
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: challenge-service
+  namespace: challengr
+spec:
+  selector:
+    app: challenge-service
+  ports:
+    - port: 8080
+      targetPort: 8080

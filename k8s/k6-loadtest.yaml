@@ -1,0 +1,107 @@
+# ======================================================
+# 🧩 1️⃣ ConfigMap contenant ton script K6
+# ======================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-loadtest-script
+  namespace: challengr          # ✅ ton namespace d’application
+data:
+  load_test.js: |
+    // =====================================================
+    // 🧠 Script de test de charge K6 - Scénario Challengr
+    // =====================================================
+
+    import http from 'k6/http';
+    import { sleep, check } from 'k6';
+    import { Trend } from 'k6/metrics';
+
+    // 📊 Création d'une métrique personnalisée pour suivre la latence
+    const latencyTrend = new Trend('custom_latency', true);
+
+    // ⚙️ Configuration globale du test
+    export const options = {
+        stages: [
+            { duration: '30s', target: 10 },   // Étape 1 : montée douce
+            { duration: '1m', target: 50 },    // Étape 2 : charge stable
+            { duration: '1m', target: 200 },   // Étape 3 : charge élevée (stress)
+            { duration: '30s', target: 0 },    // Étape 4 : retour au calme
+        ],
+        thresholds: {
+            http_req_failed: ['rate<0.05'],   // <5% d'erreurs acceptables
+            http_req_duration: ['p(95)<1000'], // P95 < 1s
+        },
+    };
+
+    // 🧩 Fonction exécutée par chaque utilisateur virtuel (VU)
+    export default function () {
+        // 📡 Service cible (via DNS interne K8s)
+        const baseUrl = 'http://submission-service.challengr.svc.cluster.local:8081/api/submissions';
+        const user = `test${__VU}`; // chaque utilisateur a un ID unique
+        
+        // Corps JSON de la requête POST
+        const payload = JSON.stringify({ challengeId: 3,
+            userHandle: user,
+            contentType: "text",
+            description: "My challenge submission",
+            content: "This is my submission text.",
+            imageUrl: null });
+        
+        // En-têtes HTTP
+        const params = {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJsb2FkdGVzdEBleGFtcGxlLmNvbSIsImhhbmRsZSI6ImxvYWR0ZXN0ZXIiLCJpYXQiOjE3NjE1MzQ3NjcsImV4cCI6MTc2MTYyMTE2N30.jjY9i4dTfLrzfB7l3KVMLqEsbA9mMGEGtasfZGRrJE8', // 🔒 à adapter si nécessaire
+            },
+            
+        };
+        
+        // Envoi de la requête POST vers l'API du submission-service
+        const res = http.post(baseUrl, payload, params);
+        
+        // Ajout du temps de réponse à la métrique custom
+        latencyTrend.add(res.timings.duration);
+        
+        // Vérification du statut et du temps de réponse
+        check(res, {
+            'status is 200': (r) => r.status === 200,
+            'response time < 2s': (r) => r.timings.duration < 2000,
+        });
+        
+        // Petite pause entre deux requêtes
+        sleep(0.2);
+    }
+
+---
+
+# ======================================================
+# 🚀 2️⃣ Job Kubernetes pour exécuter le test
+# ======================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-loadtest
+  namespace: challengr
+spec:
+  template:
+    spec:
+      containers:
+        - name: k6
+          image: grafana/k6:0.49.0        # 🧰 image officielle K6
+          imagePullPolicy: IfNotPresent
+          command:
+            # 🧠 On exécute le test et on envoie les métriques vers Prometheus via Otel Collector
+            - "k6"
+            - "run"
+            - "--out"
+            - "experimental-prometheus-rw=http://otel-collector.logging.svc.cluster.local:8889/loadtest"
+            - "/scripts/load_test.js"
+          volumeMounts:
+            - name: k6-script
+              mountPath: /scripts           # Le dossier où le script est monté
+      restartPolicy: Never                  # Pas de redémarrage après la fin du test
+      volumes:
+        - name: k6-script
+          configMap:
+            name: k6-loadtest-script        # On monte le script défini plus haut
+  backoffLimit: 0                           # Pas de relance automatique

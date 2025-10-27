@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: webapp, namespace: challengr }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: webapp } }
+  template:
+    metadata: { labels: { app: webapp } }
+    spec:
+      containers:
+        - name: web
+          image: challengr-webapp:0.1
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 80 } ]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: webapp, namespace: challengr }
+spec:
+  selector: { app: webapp }
+  ports: [ { port: 80, targetPort: 80 } ]
