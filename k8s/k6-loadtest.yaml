@@ -36,22 +36,28 @@ data:
     // 🧩 Fonction exécutée par chaque utilisateur virtuel (VU)
     export default function () {
         // 📡 Service cible (via DNS interne K8s)
-        const baseUrl = 'http://submission-service.challengr.svc.cluster.local:8081';
+        const baseUrl = 'http://submission-service.challengr.svc.cluster.local:8081/api/submissions';
         const user = `test${__VU}`; // chaque utilisateur a un ID unique
         
         // Corps JSON de la requête POST
-        const payload = JSON.stringify({ challengeId: 3, userHandle: user });
+        const payload = JSON.stringify({ challengeId: 3,
+            userHandle: user,
+            contentType: "text",
+            description: "My challenge submission",
+            content: "This is my submission text.",
+            imageUrl: null });
         
         // En-têtes HTTP
         const params = {
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer fake-token', // 🔒 à adapter si nécessaire
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJsb2FkdGVzdEBleGFtcGxlLmNvbSIsImhhbmRsZSI6ImxvYWR0ZXN0ZXIiLCJpYXQiOjE3NjE1MzQ3NjcsImV4cCI6MTc2MTYyMTE2N30.jjY9i4dTfLrzfB7l3KVMLqEsbA9mMGEGtasfZGRrJE8', // 🔒 à adapter si nécessaire
             },
+            
         };
         
         // Envoi de la requête POST vers l'API du submission-service
-        const res = http.post(`${baseUrl}/api/submissions`, payload, params);
+        const res = http.post(baseUrl, payload, params);
         
         // Ajout du temps de réponse à la métrique custom
         latencyTrend.add(res.timings.duration);
